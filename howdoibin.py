@@ -1,4 +1,4 @@
-import requests,json,os
+import requests,json,os,argparse
 #Certificate validation for https fails, so I disabled requests' verification for now
 MAPS_ENDPOINT="https://maps.west-lindsey.gov.uk/map/Cluster.svc"
 FIND_LOCATION="%s/findLocation"%MAPS_ENDPOINT
@@ -24,8 +24,18 @@ def findLocation(address,session=None,verify=None):
     else:return session.get(FIND_LOCATION,params=params,verify=verify)
 def getPage(x,y,id,session=None):
     if not session:session=getDefaultSession()
-    return session.get(GETPAGE_LOCATION,params={"script":"\\Cluster\\Cluster.AuroraScript$","taskId":"bins","format":"json","updateOnly":"true","query":"x=%s;y=%s;id=%s"%(x,y,id)})
+    return session.get(GETPAGE_LOCATION,params={"script":"\\Cluster\\Cluster.AuroraScript$","taskId":"bins","format":"json","updateOnly":"true","query":"x=%s;y=%s;id=%s"%(x,y,id)},verify=False)
 def parseFindLocation(res):
-    if res.statusCode==200:
+    if res.status_code==200:
         t=res.text
-    else:return {"success":False}
+        j_ext=None
+        try:j_ext=json.loads(t[t.find("{"):t.rfind(");")])
+        except:pass
+        return True if j_ext else False,j_ext
+    else:return False,None
+def parseGetPage(res):
+    pass
+if __name__=="__main__":
+    parser=argparse.ArgumentParser()
+
+    #parser.add_argument("--today",help="Get list of bins")
