@@ -8,6 +8,9 @@ DEFAULT_USER_AGENT="Mozilla/5.0"
 #store path to ca bundle for the maps endpoint. As requests' default bundle doesn't verify
 BIN_SSL_ENVIRON="binssl"
 
+#literally just stores address in plaintext
+ADDR_SAVE_LOCATION="~/.config/howdoibin.txt"
+
 KEY_LOCATION_DATA="Locations"
 KEY_ADDR="Description"
 KEY_ID="Id"
@@ -20,6 +23,8 @@ KEY_NEXT_DATE_RAW="next_date_raw"
 KEY_AFTER_DATE="after_date"
 KEY_AFTER_DATE_RAW="after_date_raw"
 KEY_USUAL_DAY="usual_collection_day"
+KEY_PREVIOUS_DATE="previous_date"
+KEY_TODAY="is_today"
 
 BIN_COLOURS=["black","blue","green"]
 
@@ -68,11 +73,14 @@ def findend(s,sub,start=None):
     if find>=0:
         return find+len(sub)
     else:return find
-def parseDate(s):
-    return datetime.strptime(s,"%d/%m").replace(year=datetime.today().year)
+def parseDate(s):return stripTime(datetime.strptime(s,"%d/%m").replace(year=datetime.today().year))
+#remove unecessary parts to compare current day
+def stripTime(d):return d.replace(hour=0,minute=0,second=0,microsecond=0)
+
+#does not include collections for the current day
 #will need to test on day of collection as may say "today"
 #data to find, next collection, after next collection (next 2), usual collection day
-def parseGetPage(res):
+def parseGetPage(res,verbose=0):
     lthan="\\u003c"
     gthan="\\u003e"
     quote="\\u0027"
@@ -93,21 +101,51 @@ def parseGetPage(res):
         after_date=csplit[7].replace(".","")
         usual_collection_day=csplit[17][:csplit[17].find(lthan)]
         parsed[col]={}
-        parsed[col][KEY_NEXT_DAY]=next_day
+        n=parseDate(next_date)
+        a=parseDate(after_date)
         parsed[col][KEY_NEXT_DATE_RAW]=next_date
-        parsed[col][KEY_NEXT_DATE]=parseDate(next_date)
+        parsed[col][KEY_NEXT_DATE]=n
         parsed[col][KEY_AFTER_DATE_RAW]=after_date
-        parsed[col][KEY_AFTER_DATE]=parseDate(after_date)
+        parsed[col][KEY_AFTER_DATE]=a
         parsed[col][KEY_USUAL_DAY]=usual_collection_day
+        #estimate the previous collection day by subtracting difference between after and next
+        diff=a-n
+        parsed[col][KEY_PREVIOUS_DATE]=stripTime(n-diff)
+        parsed[col][KEY_TODAY]=parsed[col][KEY_PREVIOUS_DATE]==stripTime(datetime.today())
     return parsed
-
-if __name__=="__main__":
+#return None if failed to load
+def loadAddress():
+    if os.path.isfile(ADDR_SAVE_LOCATION):
+        try:
+            with open(ADDR_SAVE_LOCATION,'r')as inp:
+                return inp.read().strip()
+        except:
+            return None
+def saveAddress(addr):
+    with open(ADDR_SAVE_LOCATION,'w')as outp:
+        outp.write(addr)
+def main():
     parser=argparse.ArgumentParser()
+    parser.add_argument("address",nargs="?",help="The address to check")
+    parser.add_argument("-c","--colour",help="An individual colour to check against")
+    parser.add_argument("-b","--blue",action="store_true",help="Check blue bin date")
+    parser.add_argument("-B","--black",action="store_true",help="Check black bin date")
+    parser.add_argument("-g","--green",action="store_true",help="Check green bin date")
+    parser.add_argument("-s","--save",action="store_true",help="Save supplied address for use next time")
+    parser.add_argument("--today",action="store_true",help="Check if any bins should be out today")
+    parser.add_argument("-v",action="store_true",help="Make application more verbose")
+    parsed=parser.parse_arguments()
+    print(parsed)
+    tofind=parsed["address"] if parsed["address"] else
+    if not addr:
+        print("")
+    if parsed["address"]:
+        pass
+if __name__=="__main__":
+    main()
+    """
     a=extractAddresses(parseFindLocation(findLocation("")))
     addr=random.choice(a)
     page=getPage(*_addr(addr))
     page_parsed=parseGetPage(page)
-    print(page_parsed)
-    #print(a)
-
-    #parser.add_argument("--today",help="Get list of bins")
+    """
